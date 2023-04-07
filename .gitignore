@@ -1,0 +1,37 @@
+# .idea
+# .DS_Store
+target
+apache-maven=3.9.1-src.zip
+apache-maven=3.9.1-src.zip\*
+apache-maven=3.9.1-src\*
+*.zip
+apache-maven-3.9.1-src\apache-maven-3.9.1\*
+# *.java
+# *.xml
+# *.jar
+# *.mdo
+# *.config
+# *.vm
+# *.properties
+# *.apt
+# *.txt
+# *.png
+apache-maven-3.9.1-src/apache-maven-3.9.1/apache-maven/src/bin/mvnDebug
+# *.cmd
+# *.md
+# *.sh
+# *.yml
+# *.rdf
+apache-maven-3.9.1-src/apache-maven-3.9.1/LICENSE
+# *.conf
+apache-maven-3.9.1-src/apache-maven-3.9.1/DEPENDENCIES
+# *.html
+# *.graffle
+apache-maven-3.9.1-src/apache-maven-3.9.1/.git-blame-ignore-revs
+apache-maven-3.9.1-src/apache-maven-3.9.1/apache-maven/src/bin/mvnyjp
+apache-maven-3.9.1-src/apache-maven-3.9.1/Jenkinsfile
+apache-maven-3.9.1-src/apache-maven-3.9.1/NOTICE
+apache-maven-3.9.1-src/apache-maven-3.9.1/apache-maven/src/bin/mvn
+# *.odg
+# *.md5
+# *.ipynb
