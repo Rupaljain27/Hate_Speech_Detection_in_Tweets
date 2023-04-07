@@ -18,6 +18,7 @@ import org.apache.lucene.store.ByteBuffersDirectory;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
@@ -33,10 +34,10 @@ import twitter4j.*;
 
 public class QueryEngine {
 
-    private static final String CONSUMER_KEY = "6PihFV771WbP6KTBJYxDFbJ2Q";
-    private static final String CONSUMER_SECRET = "NkDKlnA0RB2x81JeZkOmsq4i3ArsWPnf8WEsVoWyYd2qLFONlH";
-    private static final String ACCESS_TOKEN = "1644134884032794625-ME0ScOeLoFBI67lecMbR1gkOTNQkLb";
-    private static final String ACCESS_TOKEN_SECRET = "P23JUx21rQNe5Ok103ePB3n7jwcBOP156EktBCxzGuXOU";
+    private static String consumerKey = "";
+    private static String consumerSecret = "";
+    private static String accessToken = "";
+    private static String accessTokenSecret = "";
 
     static boolean indexExists = false;
     static String inputFilePath = "input.txt";
@@ -46,7 +47,8 @@ public class QueryEngine {
 
     public static void main(String[] args) throws Exception {
 
-        // Step 1: Retrieve random tweets from Twitter API (not implemented) -- Passing random tweets for now
+        // Step 1: Retrieve random tweets from Twitter API (not implemented) -- Passing
+        // random tweets for now
         List<String> randomTweets = Arrays.asList("hate", "offensive");// getRandomTweetsFromAPI(10);
 
         // Step 2: Build index
@@ -54,6 +56,20 @@ public class QueryEngine {
 
         // Step 3: Detect hate speech
         HateSpeechDetector(randomTweets);
+    }
+
+    public static void Twitterkeys() {
+        Properties props = new Properties();
+        try (InputStream inputStream = new FileInputStream("config.properties")) {
+            props.load(inputStream);
+            consumerKey = props.getProperty("consumerKey");
+            consumerSecret = props.getProperty("consumerSecret");
+            accessToken = props.getProperty("accessToken");
+            accessTokenSecret = props.getProperty("accessTokenSecret");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
     }
 
     // Functions to get Twitter API Instance
@@ -94,7 +110,8 @@ public class QueryEngine {
         // Creating an index writer
         StandardAnalyzer analyzer = new StandardAnalyzer();
         index = new ByteBuffersDirectory();
-        // Currently FSDirectory is not working, so using BufferedDirectory, will fix this soon
+        // Currently FSDirectory is not working, so using BufferedDirectory, will fix
+        // this soon
         // index = FSDirectory.open(Paths.get(indexPath));
 
         IndexWriterConfig config = new IndexWriterConfig(analyzer);
@@ -112,7 +129,7 @@ public class QueryEngine {
                     String docText = tokens[1];
                     Document doc = new Document();
                     doc.add(new TextField("text", docText, Field.Store.YES));
-                    doc.add(new StringField("docid", docName, Field.Store.YES));
+                    doc.add(new StringField("Tweetid", docName, Field.Store.YES));
                     writer.addDocument(doc);
                 }
                 inputScanner.close();
@@ -133,7 +150,8 @@ public class QueryEngine {
             // Creating a list to store the results
             List<ResultClass> ans = new ArrayList<ResultClass>();
 
-            // Creating a query string, this will contain all the tweets from Neural Network which will work as a query
+            // Creating a query string, this will contain all the tweets from Neural Network
+            // which will work as a query
             String queryString = String.join(" ", hateSpeechTweets);
 
             // Creating a searcher to search the index
@@ -159,7 +177,7 @@ public class QueryEngine {
                 result.docScore = score[i].score;
                 ans.add(result);
             }
-            
+
             // Printing the tweets having Hate Speech
             for (ResultClass result : ans) {
                 System.out.println(result.DocName.get("Tweetid") + " : " + result.docScore);
