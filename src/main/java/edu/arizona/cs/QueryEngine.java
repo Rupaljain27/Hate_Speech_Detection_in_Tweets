@@ -42,6 +42,7 @@ public class QueryEngine {
     static boolean indexExists = false;
     static String inputFilePath = "input.txt";
     static String indexPath = "/path/to/index/dir";
+    static String lexiconFilePath = hatespeech_lexicon.txt";
     static Directory index;
     boolean similarity = false;
 
@@ -141,6 +142,22 @@ public class QueryEngine {
         }
     }
 
+    // load the query string by using the hate speech lexicon
+    private static String loadHateSpeechLexicon(){
+        // Reading the input file
+        InputStream inputStream = QueryEngine.class.getResourceAsStream("/" + lexiconFilePath);
+        StringBuilder sb = new StringBuilder();
+        try (Scanner inputScanner = new Scanner(inputStream)) {
+            while (inputScanner.hasNextLine()) {
+                String line = inputScanner.nextLine();
+                sb.append(" ");
+                sb.append(line);
+            }
+        }
+        String lexiconQueryString = sb.toString();
+        return lexiconQueryString;
+    }
+
     // Function to detect hate speech
     private static void HateSpeechDetector(List<String> hateSpeechTweets) throws Exception {
 
@@ -153,6 +170,9 @@ public class QueryEngine {
             // Creating a query string, this will contain all the tweets from Neural Network
             // which will work as a query
             String queryString = String.join(" ", hateSpeechTweets);
+
+            // improvement of traditional method - load lexicon from hate speech text file
+            String lexiconQueryString = loadHateSpeechLexicon();
 
             // Creating a searcher to search the index
             IndexSearcher searcher = new IndexSearcher(reader);

@@ -1,5 +1,5 @@
-# .idea
-# .DS_Store
+.idea
+.DS_Store
 target
 apache-maven=3.9.1-src.zip
 apache-maven=3.9.1-src.zip\*
