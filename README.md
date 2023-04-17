@@ -39,3 +39,4 @@ javac src/main/java/edu/arizona/cs/QueryEngine.java
 * https://developer.twitter.com/en/docs/twitter-api/getting-started/getting-access-to-the-twitter-api
 * https://huggingface.co/pysentimiento/bertweet-hate-speech
 * https://github.com/aymeam/Datasets-for-Hate-Speech-Detection
+* https://twitter4j.org/configuration
