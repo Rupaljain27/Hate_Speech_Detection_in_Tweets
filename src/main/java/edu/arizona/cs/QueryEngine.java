@@ -1,6 +1,12 @@
 package edu.arizona.cs;
 
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.CharFilter;
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.charfilter.MappingCharFilter;
+import org.apache.lucene.analysis.charfilter.NormalizeCharMap;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.StringField;
@@ -19,38 +25,49 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 
 import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
 import java.nio.file.Paths;
 import java.util.*;
 
-import twitter4j.Twitter;
-import twitter4j.TwitterException;
-import twitter4j.v1.Query;
-import twitter4j.v1.QueryResult;
-import twitter4j.v1.Status;
 import twitter4j.*;
+import twitter4j.conf.ConfigurationBuilder;
+import twitter4j.api.TimelinesResources;
 
 public class QueryEngine {
 
-    private static String consumerKey = "";
-    private static String consumerSecret = "";
-    private static String accessToken = "";
-    private static String accessTokenSecret = "";
+    private static String CONSUMER_KEY = "";
+    private static String CONSUMER_SECRET = "";
+    private static String ACCESS_TOKEN = "";
+    private static String ACCESS_TOKEN_SECRET = "";
 
     static boolean indexExists = false;
+    static String filePath = "src/main/resources/input.txt";
     static String inputFilePath = "input.txt";
-    static String indexPath = "/path/to/index/dir";
-    static String lexiconFilePath = hatespeech_lexicon.txt";
+    static String QueryFilePath = "query.txt";
+    static String indexPath = "src/main/index";
+    static String lexiconFilePath = "hatespeech_lexicon.txt";
     static Directory index;
     boolean similarity = false;
 
     public static void main(String[] args) throws Exception {
 
-        // Step 1: Retrieve random tweets from Twitter API (not implemented) -- Passing
-        // random tweets for now
-        List<String> randomTweets = Arrays.asList("hate", "offensive");// getRandomTweetsFromAPI(10);
+        List<String> randomTweets = new ArrayList<String>();
+        // InputStream inputStream = QueryEngine.class.getResourceAsStream("/" +
+        // QueryFilePath);
+        // try (Scanner inputScanner = new Scanner(inputStream)) {
+        // while (inputScanner.hasNextLine()) {
+        // String line = inputScanner.nextLine();
+        // randomTweets.add(line);
+        // }
+        // inputScanner.close();
+        // }
+        randomTweets = Arrays.asList("hate", "offensive");
+
+        // Step 1: Retrieve random tweets from Twitter API (not implemented)
+        // getRandomTweetsFromAPI(50);
 
         // Step 2: Build index
         buildIndex();
@@ -59,61 +76,138 @@ public class QueryEngine {
         HateSpeechDetector(randomTweets);
     }
 
-    public static void Twitterkeys() {
+    public static Twitter getTwitterInstance() {
         Properties props = new Properties();
         try (InputStream inputStream = new FileInputStream("config.properties")) {
             props.load(inputStream);
-            consumerKey = props.getProperty("consumerKey");
-            consumerSecret = props.getProperty("consumerSecret");
-            accessToken = props.getProperty("accessToken");
-            accessTokenSecret = props.getProperty("accessTokenSecret");
+            // System.out.println(props);
+            CONSUMER_KEY = props.getProperty("consumerKey");
+            CONSUMER_SECRET = props.getProperty("consumerSecret");
+            ACCESS_TOKEN = props.getProperty("accessToken");
+            ACCESS_TOKEN_SECRET = props.getProperty("accessTokenSecret");
+
+            ConfigurationBuilder cb = new ConfigurationBuilder();
+            cb.setDebugEnabled(true)
+                    .setOAuthConsumerKey(CONSUMER_KEY)
+                    .setOAuthConsumerSecret(CONSUMER_SECRET)
+                    .setOAuthAccessToken(ACCESS_TOKEN)
+                    .setOAuthAccessTokenSecret(ACCESS_TOKEN_SECRET);
+
+            // Creating a Twitter factory with the configuration
+            TwitterFactory tf = new TwitterFactory(cb.build());
+
+            // Creating a Twitter instance
+            Twitter twitter = tf.getInstance();
+            return twitter;
         } catch (IOException e) {
             e.printStackTrace();
         }
-
+        return null;
     }
 
-    // Functions to get Twitter API Instance
-    // private static Twitter getTwitterInstance() throws TwitterException {
-    // Twitter twitter = Twitter.newBuilder()
-    // // .debugEnabled(true)
-    // .oAuthConsumer(CONSUMER_KEY, CONSUMER_SECRET)
-    // .oAuthAccessToken(ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
-    // .build();
-    // // twitter.v2().tweets().updateStatus("Hello Twitter API!");
-    // // TwitterFactory tf = new TwitterFactory(twitter.build());
-    // return twitter.getInstance();
-    // }
+    public static String normalizeText(String inputText) throws IOException {
+
+        // Define the mapping for the apostrophe
+        NormalizeCharMap.Builder builder = new NormalizeCharMap.Builder();
+        builder.add("'", "");
+        NormalizeCharMap charMap = builder.build();
+
+        // Create a CharFilter to remove the apostrophe
+        CharFilter charFilter = new MappingCharFilter(charMap, new StringReader(inputText));
+
+        // create a new instance of the StandardAnalyzer
+        Analyzer analyzer = new StandardAnalyzer();
+
+        // tokenize the input text
+        TokenStream tokenStream = analyzer.tokenStream("field", new StringReader(inputText));
+
+        // create a new StringBuilder to store the normalized text
+        StringBuilder outputText = new StringBuilder();
+
+        // iterate through the tokens and add them to the outputText
+        CharTermAttribute charTermAttribute = tokenStream.addAttribute(CharTermAttribute.class);
+        tokenStream.reset();
+        while (tokenStream.incrementToken()) {
+            outputText.append(charTermAttribute.toString());
+            outputText.append(" ");
+        }
+
+        // close the tokenStream and analyzer
+        tokenStream.end();
+        tokenStream.close();
+        analyzer.close();
+
+        // return the normalized text
+        return outputText.toString().trim();
+    }
 
     // Functions to retrieve random tweets from Twitter API
-    // private static List<String> getRandomTweetsFromAPI(int numTweets) throws
-    // TwitterException {
-    // Twitter twitter = getTwitterInstance();
-    // List<String> tweets = new ArrayList<>();
-    // Query query;
-    // try {
-    // query = new Query("hate");
-    // query.count(numTweets);
-    // QueryResult result = twitter.searchTweets(query).getTweets();
-    // for (Status status : result.getTweets()) {
-    // System.out.println(status.getText());
-    // tweets.add(status.getText());
-    // }
-    // } catch (ParseException | TwitterException | IOException e) {
-    // e.printStackTrace();
-    // }
-    // return tweets;
-    // }
+    private static void getRandomTweetsFromAPI(int numTweets) throws TwitterException, IOException {
+
+        Twitter twitter = getTwitterInstance();
+
+        // Create a FileWriter object
+        FileWriter writer = new FileWriter(filePath, true);
+
+        try {
+            // List<Status> statuses = twitter.getHomeTimeline();
+            // List<Status> statuses = ((TimelinesResources) twitter).getHomeTimeline();
+
+            // Create a query object and set its parameters
+            Query query = new Query("hate OR offensive");
+            query.setCount(numTweets);
+            query.setResultType(Query.RECENT); // Set result type to recent tweets
+            query.setLang("en"); // Set language to English
+
+            // Execute the query and retrieve the search results
+            QueryResult result = twitter.search(query);
+            List<Status> statuses = result.getTweets();
+
+            System.out.println("Number of tweets: " + statuses.size());
+
+            // Iterate through the tweets and get the last tweet ID
+            InputStream inputStream = QueryEngine.class.getResourceAsStream("/" + inputFilePath);
+            String line = "";
+            try (Scanner inputScanner = new Scanner(inputStream)) {
+                while (inputScanner.hasNextLine()) {
+                    line = inputScanner.nextLine();
+                    if (!inputScanner.hasNextLine()) {
+                        // lastLine = line;
+                        System.out.println("Last line of file: " + line);
+                    }
+                }
+            }
+            String[] tokens = line.split(" ", 2);
+            Integer counter = 1;
+            if (line != "") {
+                counter = Integer.parseInt(tokens[0].substring(5)) + 1;
+            }
+            for (Status status : statuses) {
+                // Remove punctuation from tweet text
+                String text = status.getText().replaceAll("\\p{Punct}", "");
+                text = text.replaceAll("\n", "");
+
+                // Write new line of text to the file
+                text = normalizeText(text);
+                text = "Tweet" + Integer.toString(counter) + " " + text;
+
+                writer.write(text + "\n");
+                counter += 1;
+            }
+        } catch (TwitterException e) {
+            e.printStackTrace();
+        } finally {
+            writer.close();
+        }
+    }
 
     // Function to build index
     private static void buildIndex() throws IOException {
 
         // Creating an index writer
         StandardAnalyzer analyzer = new StandardAnalyzer();
-        index = new ByteBuffersDirectory();
-        // Currently FSDirectory is not working, so using BufferedDirectory, will fix
-        // this soon
-        // index = FSDirectory.open(Paths.get(indexPath));
+        // index = new ByteBuffersDirectory();
+        index = FSDirectory.open(Paths.get(indexPath));
 
         IndexWriterConfig config = new IndexWriterConfig(analyzer);
 
@@ -143,7 +237,7 @@ public class QueryEngine {
     }
 
     // load the query string by using the hate speech lexicon
-    private static String loadHateSpeechLexicon(){
+    private static String loadHateSpeechLexicon() {
         // Reading the input file
         InputStream inputStream = QueryEngine.class.getResourceAsStream("/" + lexiconFilePath);
         StringBuilder sb = new StringBuilder();
@@ -197,10 +291,11 @@ public class QueryEngine {
                 result.docScore = score[i].score;
                 ans.add(result);
             }
-
+            System.out.println("Hate Speech Tweets: ***************");
             // Printing the tweets having Hate Speech
             for (ResultClass result : ans) {
-                System.out.println(result.DocName.get("Tweetid") + " : " + result.docScore);
+                System.out.println(
+                        result.DocName.get("Tweetid") + " : " + result.DocName.get("text") + " : " + result.docScore);
             }
             reader.close();
         } catch (IOException e) {
