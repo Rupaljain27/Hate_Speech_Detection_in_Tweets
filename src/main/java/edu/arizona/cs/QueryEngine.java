@@ -46,7 +46,7 @@ public class QueryEngine {
     static boolean indexExists = false;
     static String filePath = "src/main/resources/input.txt";
     static String inputFilePath = "input.txt";
-    static String QueryFilePath = "query.txt";
+    static String QueryFilePath = "improved_NN_hatespeech_query.txt";
     static String indexPath = "src/main/index";
     static String lexiconFilePath = "hatespeech_lexicon.txt";
     static Directory index;
@@ -54,26 +54,26 @@ public class QueryEngine {
 
     public static void main(String[] args) throws Exception {
 
-        List<String> randomTweets = new ArrayList<String>();
-        // InputStream inputStream = QueryEngine.class.getResourceAsStream("/" +
-        // QueryFilePath);
-        // try (Scanner inputScanner = new Scanner(inputStream)) {
-        // while (inputScanner.hasNextLine()) {
-        // String line = inputScanner.nextLine();
-        // randomTweets.add(line);
-        // }
-        // inputScanner.close();
-        // }
-        randomTweets = Arrays.asList("hate", "offensive");
+        String NNquery = "";
+        // Creating a query string, this will contain all the tweets from Neural Network which will work as a query
+        InputStream inputStream = QueryEngine.class.getResourceAsStream("/" + QueryFilePath);
+        try (Scanner inputScanner = new Scanner(inputStream)) {
+            while (inputScanner.hasNextLine()) {
+                String line = inputScanner.nextLine();
+                NNquery += line + " ";
+            }
+            inputScanner.close();
+        }
+        NNquery = NNquery.trim();
 
         // Step 1: Retrieve random tweets from Twitter API (not implemented)
-        // getRandomTweetsFromAPI(50);
+        getRandomTweetsFromAPI(50);
 
         // Step 2: Build index
         buildIndex();
 
         // Step 3: Detect hate speech
-        HateSpeechDetector(randomTweets);
+        HateSpeechDetector(NNquery);
     }
 
     public static Twitter getTwitterInstance() {
@@ -151,19 +151,18 @@ public class QueryEngine {
 
         try {
             // List<Status> statuses = twitter.getHomeTimeline();
-            // List<Status> statuses = ((TimelinesResources) twitter).getHomeTimeline();
+            List<Status> statuses = ((TimelinesResources) twitter).getHomeTimeline();
 
             // Create a query object and set its parameters
-            Query query = new Query("hate OR offensive");
-            query.setCount(numTweets);
-            query.setResultType(Query.RECENT); // Set result type to recent tweets
-            query.setLang("en"); // Set language to English
+            // Query query = new Query("hate OR offensive");
+            // query.setCount(numTweets);
+            // query.setResultType(Query.RECENT); // Set result type to recent tweets
+            // query.setLang("en"); // Set language to English
+            // // Execute the query and retrieve the search results
+            // QueryResult result = twitter.search(query);
+            // List<Status> statuses = result.getTweets();
 
-            // Execute the query and retrieve the search results
-            QueryResult result = twitter.search(query);
-            List<Status> statuses = result.getTweets();
-
-            System.out.println("Number of tweets: " + statuses.size());
+            System.out.println("Number of tweets retrieved: " + statuses.size());
 
             // Iterate through the tweets and get the last tweet ID
             InputStream inputStream = QueryEngine.class.getResourceAsStream("/" + inputFilePath);
@@ -171,10 +170,8 @@ public class QueryEngine {
             try (Scanner inputScanner = new Scanner(inputStream)) {
                 while (inputScanner.hasNextLine()) {
                     line = inputScanner.nextLine();
-                    if (!inputScanner.hasNextLine()) {
-                        // lastLine = line;
-                        System.out.println("Last line of file: " + line);
-                    }
+                    // if (!inputScanner.hasNextLine()) {
+                    // }
                 }
             }
             String[] tokens = line.split(" ", 2);
@@ -253,17 +250,13 @@ public class QueryEngine {
     }
 
     // Function to detect hate speech
-    private static void HateSpeechDetector(List<String> hateSpeechTweets) throws Exception {
+    private static void HateSpeechDetector(String queryString) throws Exception {
 
         // Creating an index reader
         try (IndexReader reader = DirectoryReader.open(index)) {
 
             // Creating a list to store the results
             List<ResultClass> ans = new ArrayList<ResultClass>();
-
-            // Creating a query string, this will contain all the tweets from Neural Network
-            // which will work as a query
-            String queryString = String.join(" ", hateSpeechTweets);
 
             // improvement of traditional method - load lexicon from hate speech text file
             String lexiconQueryString = loadHateSpeechLexicon();
@@ -275,8 +268,7 @@ public class QueryEngine {
             searcher.setSimilarity(new ClassicSimilarity());
 
             // Set up the query parser for the query
-            org.apache.lucene.search.Query query = new QueryParser("text", new StandardAnalyzer())
-                    .parse(queryString);
+            org.apache.lucene.search.Query query = new QueryParser("text", new StandardAnalyzer()).parse(queryString);
 
             // Searching the index
             TopDocs hits = searcher.search(query, 20);
@@ -292,6 +284,7 @@ public class QueryEngine {
                 ans.add(result);
             }
             System.out.println("Hate Speech Tweets: ***************");
+            System.out.println("Hate Speech tweets retrieved: " + ans.size());
             // Printing the tweets having Hate Speech
             for (ResultClass result : ans) {
                 System.out.println(
