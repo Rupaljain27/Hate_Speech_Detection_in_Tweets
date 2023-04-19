@@ -20,10 +20,10 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.similarities.ClassicSimilarity;
-import org.apache.lucene.store.ByteBuffersDirectory;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -55,7 +55,8 @@ public class QueryEngine {
     public static void main(String[] args) throws Exception {
 
         String NNquery = "";
-        // Creating a query string, this will contain all the tweets from Neural Network which will work as a query
+        // Creating a query string, this will contain all the tweets from Neural Network
+        // which will work as a query
         InputStream inputStream = QueryEngine.class.getResourceAsStream("/" + QueryFilePath);
         try (Scanner inputScanner = new Scanner(inputStream)) {
             while (inputScanner.hasNextLine()) {
@@ -200,7 +201,7 @@ public class QueryEngine {
 
     // Function to build index
     private static void buildIndex() throws IOException {
-
+        
         // Creating an index writer
         StandardAnalyzer analyzer = new StandardAnalyzer();
         // index = new ByteBuffersDirectory();
@@ -251,6 +252,9 @@ public class QueryEngine {
 
     // Function to detect hate speech
     private static void HateSpeechDetector(String queryString) throws Exception {
+
+        // Create index
+        index = FSDirectory.open(Paths.get(indexPath));
 
         // Creating an index reader
         try (IndexReader reader = DirectoryReader.open(index)) {
