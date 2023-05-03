@@ -27,10 +27,15 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 
+import com.opencsv.CSVWriter;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -61,6 +66,13 @@ public class QueryEngine {
     static String lexiconQueryFile = "expanded_hatespeech_lexicon.txt";
 
     static String groundTruthFilePath = "src/main/resources/input.csv";
+
+    static String ansFilePath_Combined_NN = "src/main/resources/output_Combined_NN.txt";
+    static String ansFilePath_New_NN = "src/main/resources/output_New_NN.txt";
+    static String ansFilePath_Original_NN = "src/main/resources/output_Original_NN.txt";
+    static String ansFilePath_Combined_Lex = "src/main/resources/output_Combined_Lex.txt";
+    static String ansFilePath_New_Lex = "src/main/resources/output_New_Lex.txt";
+    static String ansFilePath_Original_Lex = "src/main/resources/output_Original_Lex.txt";
     static String ansFilePath_Combined = "src/main/resources/output_Combined.txt";
     static String ansFilePath_New = "src/main/resources/output_New.txt";
     static String ansFilePath_Original = "src/main/resources/output_Original.txt";
@@ -74,7 +86,7 @@ public class QueryEngine {
         String OriginalNNquery = "";
         // Creating a query string, this will contain all the tweets from Neural Network
         // which will work as a query
-        InputStream inputStream = QueryEngine.class.getResourceAsStream("/" + CombinedQueryFile);
+        InputStream inputStream = QueryEngine.class.getResourceAsStream("/" + NewQueryFile);
         try (Scanner inputScanner = new Scanner(inputStream)) {
             while (inputScanner.hasNextLine()) {
                 String line = inputScanner.nextLine();
@@ -84,7 +96,7 @@ public class QueryEngine {
         }
         NewNNquery = NewNNquery.trim();
 
-        inputStream = QueryEngine.class.getResourceAsStream("/" + OriginalQueryFile);
+        inputStream = QueryEngine.class.getResourceAsStream("/" + CombinedQueryFile);
         try (Scanner inputScanner = new Scanner(inputStream)) {
             while (inputScanner.hasNextLine()) {
                 String line = inputScanner.nextLine();
@@ -94,7 +106,7 @@ public class QueryEngine {
         }
         CombinedNNquery = CombinedNNquery.trim();
 
-        inputStream = QueryEngine.class.getResourceAsStream("/" + NewQueryFile);
+        inputStream = QueryEngine.class.getResourceAsStream("/" + OriginalQueryFile);
         try (Scanner inputScanner = new Scanner(inputStream)) {
             while (inputScanner.hasNextLine()) {
                 String line = inputScanner.nextLine();
@@ -111,15 +123,15 @@ public class QueryEngine {
         // buildIndex();
 
         // Step 3: Detect hate speech
-        // System.out.println("New NN query");
-        // HateSpeechDetector(NewNNquery, "New");
-        // System.out.println("Combined NN query");
-        // HateSpeechDetector(CombinedNNquery, "Combined");
-        // System.out.println("Original NN query");
-        // HateSpeechDetector(OriginalNNquery, "Original");
+        System.out.println("New NN query");
+        HateSpeechDetector(NewNNquery, "New");
+        System.out.println("Combined NN query");
+        HateSpeechDetector(CombinedNNquery, "Combined");
+        System.out.println("Original NN query");
+        HateSpeechDetector(OriginalNNquery, "Original");
 
         // Evaluation();
-        OUTPUT();
+        // OUTPUT();
     }
 
     public static Twitter getTwitterInstance() {
@@ -305,9 +317,13 @@ public class QueryEngine {
         index = FSDirectory.open(Paths.get(indexPath));
 
         String filename = "src/main/resources/output_" + name + ".txt";
+        String filename_NN = "src/main/resources/output_" + name + "_NN.txt";
+        String filename_Lex = "src/main/resources/output_" + name + "_Lex.txt";
         // Creating an index reader
         try (IndexReader reader = DirectoryReader.open(index);
-                BufferedWriter writer = new BufferedWriter(new FileWriter(filename, false))) {
+                BufferedWriter writer = new BufferedWriter(new FileWriter(filename, false));
+                BufferedWriter writer_NN = new BufferedWriter(new FileWriter(filename_NN, false));
+                BufferedWriter writer_Lex = new BufferedWriter(new FileWriter(filename_Lex, false))) {
 
             // Creating a list to store the results
             List<ResultClass> ans = new ArrayList<ResultClass>();
@@ -352,14 +368,16 @@ public class QueryEngine {
             }
             System.out.println("Hate Speech Tweets: ***************");
             System.out.println("Hate Speech tweets retrieved from NN: " + ans.size());
-            // Printing the tweets having Hate Speech
-            // for (ResultClass result : ans) {
-            // System.out.println(
-            // result.DocName.get("Tweetid") + " : " + result.DocName.get("text") + " : " +
-            // result.docScore);
-            // }
+            // Writing the results to a file for NN
+            for (ResultClass result : ans) {
+                String output = result.DocName.get("Tweetid") + " : " + result.docScore + " : "
+                        + result.DocName.get("text");
+                // System.out.println(output);
+                writer_NN.write(output);
+                writer_NN.newLine();
+            }
 
-            // improvement of traditional method - load lexicon from hate speech text file
+            // Improvement of traditional method - load lexicon from hate speech text file
             String lexiconQueryString = loadHateSpeechLexicon(lexiconQueryFile);
 
             // Creating a list to store the results
@@ -378,7 +396,24 @@ public class QueryEngine {
             // Searching the index
             hits = searcher.search(query, 20);
             score = hits.scoreDocs;
-            System.out.println("Total number of tweets retrieved from Lexicon: " + score + " : " + hits);
+
+            List<ResultClass> temp = new ArrayList<ResultClass>();
+            for (int i = 0; i < score.length; ++i) {
+                int docId = score[i].doc;
+                Document doc = searcher.doc(docId);
+                ResultClass result = new ResultClass();
+                result.DocName = doc;
+                result.docScore = score[i].score;
+                temp.add(result);
+            }
+            System.out.println("Hate Speech tweets retrieved from Lex: " + temp.size());
+            for (ResultClass result : temp) {
+                String output = result.DocName.get("Tweetid") + " : " + result.docScore + " : "
+                        + result.DocName.get("text");
+                // System.out.println(output);
+                writer_Lex.write(output);
+                writer_Lex.newLine();
+            }
 
             // Storing the results in the list
             for (int i = 0; i < score.length; ++i) {
@@ -390,8 +425,6 @@ public class QueryEngine {
                 // Check if the entry already exists in ans
                 boolean entryExists = false;
                 for (ResultClass existingResult : ans) {
-                    // System.out.println("existingResult.DocName: " + existingResult.DocName + "
-                    // Score: " + existingResult.docScore);
                     if (existingResult.DocName.equals(result.DocName)) {
                         entryExists = true;
                         break;
@@ -399,23 +432,14 @@ public class QueryEngine {
                 }
                 if (!entryExists) {
                     ans.add(result);
-                } else {
-                    ans.add(result);
                 }
             }
             System.out.println("Hate Speech tweets retrieved: " + ans.size());
-            // Printing the tweets having Hate Speech
-            // for (ResultClass result : ans) {
-            // System.out.println(
-            // result.DocName.get("Tweetid") + " : " + result.DocName.get("text") + " : " +
-            // result.docScore);
-            // }
 
             // Printing the tweets having Hate Speech and writing to output.txt
             for (ResultClass result : ans) {
                 String output = result.DocName.get("Tweetid") + " : " + result.docScore + " : "
                         + result.DocName.get("text");
-                System.out.println(output);
                 writer.write(output);
                 writer.newLine();
             }
@@ -435,7 +459,12 @@ public class QueryEngine {
         Map<String, Float> newRetrieved = readRetrievedTweets(ansFilePath_New);
         Map<String, Float> originalRetrieved = readRetrievedTweets(ansFilePath_Original);
 
-        createCSV(tweets, combinedRetrieved, newRetrieved, originalRetrieved, "src/main/resources/output_with_lexicon.xlsx");
+        createExcel(tweets, combinedRetrieved, newRetrieved, originalRetrieved,
+        "src/main/resources/output_without_lexicon.xlsx");
+
+        createExcelWithLexicon(tweets, combinedRetrieved, newRetrieved, originalRetrieved, combinedRetrieved,
+                newRetrieved, originalRetrieved,
+                "src/main/resources/output_with_lexicon.xlsx");
     }
 
     private static Map<String, Integer> readTweets(String filePath) {
@@ -461,45 +490,155 @@ public class QueryEngine {
         return tweets;
     }
 
-    public static void createCSV(Map<String, Integer> tweets, Map<String, Float> combinedRetrieved, Map<String, Float> newRetrieved, Map<String, Float> originalRetrieved, String fileName) {
+    public static void createExcel(Map<String, Integer> tweets, Map<String, Float> combinedRetrieved,
+            Map<String, Float> newRetrieved, Map<String, Float> originalRetrieved, String fileName) {
 
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileName))) {
-            // Write the header row
-            writer.write("tweet,hate,Original_retrieved(0/1),score,New_retrieved(0/1),score,Combined_retrieved(0/1),score");
-            writer.newLine();
-    
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Output");
+
+            // Create the header row
+            Row headerRow = sheet.createRow(0);
+            headerRow.createCell(0).setCellValue("tweet");
+            headerRow.createCell(1).setCellValue("hate");
+            headerRow.createCell(2).setCellValue("Original_retrieved(0/1)");
+            headerRow.createCell(3).setCellValue("score");
+            headerRow.createCell(3).setCellValue("category");
+            headerRow.createCell(4).setCellValue("New_retrieved(0/1)");
+            headerRow.createCell(5).setCellValue("score");
+            headerRow.createCell(3).setCellValue("category");
+            headerRow.createCell(6).setCellValue("Combined_retrieved(0/1)");
+            headerRow.createCell(7).setCellValue("score");
+            headerRow.createCell(3).setCellValue("category");
+
             // Iterate over the tweets and write each row
+            int rowIndex = 1;
             for (Map.Entry<String, Integer> entry : tweets.entrySet()) {
                 String tweet = entry.getKey();
                 int hateValue = entry.getValue();
-    
-                writer.write(tweet);
-                writer.write("," + hateValue);
-    
+
+                Row row = sheet.createRow(rowIndex++);
+                row.createCell(0).setCellValue(tweet);
+                row.createCell(1).setCellValue(hateValue);
+
                 // Check if the tweet is in originalRetrieved and write the corresponding values
-                writer.write(",");
-                writeRetrievedValueAndScore(originalRetrieved, tweet, writer);
-    
+                writeRetrievedValueAndScore(originalRetrieved, tweet, row, 2, 3);
+
                 // Check if the tweet is in newRetrieved and write the corresponding values
-                writer.write(",");
-                writeRetrievedValueAndScore(newRetrieved, tweet, writer);
-    
+                writeRetrievedValueAndScore(newRetrieved, tweet, row, 4, 5);
+
                 // Check if the tweet is in combinedRetrieved and write the corresponding values
-                writer.write(",");
-                writeRetrievedValueAndScore(combinedRetrieved, tweet, writer);
-    
-                writer.newLine();
+                writeRetrievedValueAndScore(combinedRetrieved, tweet, row, 6, 7);
             }
-        } catch (IOException e) {
+
+            // Auto-size columns for better readability
+            for (int i = 0; i <= 7; i++) {
+                sheet.autoSizeColumn(i);
+            }
+
+            // Write the workbook to the output file
+            try (FileOutputStream outputStream = new FileOutputStream(fileName)) {
+                workbook.write(outputStream);
+            }
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
-    
-    private static void writeRetrievedValueAndScore(Map<String, Float> retrievedTweets, String tweet, BufferedWriter writer) throws IOException {
+
+    private static void writeRetrievedValueAndScore(Map<String, Float> retrievedTweets, String tweet, Row row,
+            int valueCellIndex, int scoreCellIndex) {
+        Cell scoreCell = row.createCell(scoreCellIndex);
+        Cell valueCell = row.createCell(valueCellIndex);
+
         if (retrievedTweets.containsKey(tweet)) {
-            writer.write(retrievedTweets.get(tweet) + ",1");
+            valueCell.setCellValue(1);
+            scoreCell.setCellValue(retrievedTweets.get(tweet));
         } else {
-            writer.write("0,0");
+            valueCell.setCellValue(0);
+            scoreCell.setCellValue(0);
+        }
+    }
+
+    public static void createExcelWithLexicon(Map<String, Integer> tweets, Map<String, Float> combinedRetrieved_NN,
+            Map<String, Float> newRetrieved_NN, Map<String, Float> originalRetrieved_NN,
+            Map<String, Float> combinedRetrieved_Lex, Map<String, Float> newRetrieved_Lex,
+            Map<String, Float> originalRetrieved_Lex, String fileName) {
+
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Output");
+
+            // Create the header row
+            Row headerRow = sheet.createRow(0);
+            headerRow.createCell(0).setCellValue("tweet");
+            headerRow.createCell(1).setCellValue("hate");
+            headerRow.createCell(2).setCellValue("Original_retrieved(0/1)");
+            headerRow.createCell(3).setCellValue("score");
+            headerRow.createCell(4).setCellValue("category");
+            headerRow.createCell(5).setCellValue("New_retrieved(0/1)");
+            headerRow.createCell(6).setCellValue("score");
+            headerRow.createCell(7).setCellValue("category");
+            headerRow.createCell(8).setCellValue("Combined_retrieved(0/1)");
+            headerRow.createCell(9).setCellValue("score");
+            headerRow.createCell(10).setCellValue("category");
+
+            // Iterate over the tweets and write each row
+            int rowIndex = 1;
+            for (Map.Entry<String, Integer> entry : tweets.entrySet()) {
+                String tweet = entry.getKey();
+                int hateValue = entry.getValue();
+
+                Row row = sheet.createRow(rowIndex++);
+                row.createCell(0).setCellValue(tweet);
+                row.createCell(1).setCellValue(hateValue);
+
+                // Check if the tweet is in originalRetrieved and write the corresponding values
+                writeRetrievedValueAndScoreWithLexicon(originalRetrieved_NN, originalRetrieved_Lex, tweet, row, 2, 3,
+                        4);
+
+                // Check if the tweet is in newRetrieved and write the corresponding values
+                writeRetrievedValueAndScoreWithLexicon(newRetrieved_NN, newRetrieved_Lex, tweet, row, 5, 6, 7);
+
+                // Check if the tweet is in combinedRetrieved and write the corresponding values
+                writeRetrievedValueAndScoreWithLexicon(combinedRetrieved_NN, combinedRetrieved_Lex, tweet, row, 8, 9,
+                        10);
+            }
+
+            // Auto-size columns for better readability
+            for (int i = 0; i <= 10; i++) {
+                sheet.autoSizeColumn(i);
+            }
+
+            // Write the workbook to the output file
+            try (FileOutputStream outputStream = new FileOutputStream(fileName)) {
+                workbook.write(outputStream);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void writeRetrievedValueAndScoreWithLexicon(Map<String, Float> retrievedTweets_NN,
+            Map<String, Float> retrievedTweets_Lex, String tweet, Row row, int valueCellIndex, int scoreCellIndex,
+            int categoryCellIndex) {
+        Cell scoreCell = row.createCell(scoreCellIndex);
+        Cell valueCell = row.createCell(valueCellIndex);
+        Cell categoryCell = row.createCell(categoryCellIndex);
+
+        if (retrievedTweets_NN.containsKey(tweet) && retrievedTweets_Lex.containsKey(tweet)) {
+            valueCell.setCellValue(1);
+            scoreCell.setCellValue(retrievedTweets_Lex.get(tweet));
+            categoryCell.setCellValue("NN+Lex");
+        } else if (retrievedTweets_NN.containsKey(tweet)) {
+            valueCell.setCellValue(1);
+            scoreCell.setCellValue(retrievedTweets_NN.get(tweet));
+            categoryCell.setCellValue("NN");
+        } else if (retrievedTweets_Lex.containsKey(tweet)) {
+            valueCell.setCellValue(1);
+            scoreCell.setCellValue(retrievedTweets_Lex.get(tweet));
+            categoryCell.setCellValue("Lexicon");
+        } else {
+            valueCell.setCellValue(0);
+            scoreCell.setCellValue(0);
+            categoryCell.setCellValue("");
         }
     }
 
