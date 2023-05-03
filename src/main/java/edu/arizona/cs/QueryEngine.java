@@ -130,7 +130,9 @@ public class QueryEngine {
         // System.out.println("Original NN query");
         // HateSpeechDetector(OriginalNNquery, "Original");
 
-        // Evaluation();
+        Evaluation(ansFilePath_New, ansFilePath_Combined, ansFilePath_Original);
+        Evaluation(ansFilePath_New_NN, ansFilePath_Combined_NN, ansFilePath_Original_NN);
+        Evaluation(ansFilePath_New_Lex, ansFilePath_Combined_Lex, ansFilePath_Original_Lex);
         // OUTPUT();
     }
 
@@ -341,7 +343,7 @@ public class QueryEngine {
                     .parse(queryString);
 
             // Searching the index
-            TopDocs hits = searcher.search(query, 20);
+            TopDocs hits = searcher.search(query, 40);
             ScoreDoc[] score = hits.scoreDocs;
             System.out.println("Total number of tweets retrieved: " + score + " : " + hits);
 
@@ -436,7 +438,7 @@ public class QueryEngine {
             }
             System.out.println("Hate Speech tweets retrieved: " + ans.size());
 
-            // Printing the tweets having Hate Speech and writing to output.txt
+            // Writing the tweets having Hate Speech to output.txt
             for (ResultClass result : ans) {
                 String output = result.DocName.get("Tweetid") + " : " + result.docScore + " : "
                         + result.DocName.get("text");
@@ -452,18 +454,38 @@ public class QueryEngine {
     public static void OUTPUT() {
         String ansFilePath_Combined = "src/main/resources/output_Combined.txt";
         String ansFilePath_New = "src/main/resources/output_New.txt";
-        String ansFilePath_Original = "src/main/resources/output_Original.txt";
+        String ansFilePath_Original = "src/main/resources/output_Original.txt"; 
+
+        // Neural network
+        String ansFilePath_Combined_NN = "src/main/resources/output_Combined_NN.txt";
+        String ansFilePath_New_NN = "src/main/resources/output_New_NN.txt";
+        String ansFilePath_Original_NN = "src/main/resources/output_Original_NN.txt";
+
+        // Lexicon
+        String ansFilePath_Combined_Lex = "src/main/resources/output_Combined_Lex.txt";
+        String ansFilePath_New_Lex = "src/main/resources/output_New_Lex.txt";
+        String ansFilePath_Original_Lex = "src/main/resources/output_Original_Lex.txt";
 
         Map<String, Integer> tweets = readTweets(inputfilePathCSV);
         Map<String, Float> combinedRetrieved = readRetrievedTweets(ansFilePath_Combined);
         Map<String, Float> newRetrieved = readRetrievedTweets(ansFilePath_New);
         Map<String, Float> originalRetrieved = readRetrievedTweets(ansFilePath_Original);
 
-        createExcel(tweets, combinedRetrieved, newRetrieved, originalRetrieved,
+        // Neural Network
+        Map<String, Float> combinedRetrieved_NN = readRetrievedTweets(ansFilePath_Combined_NN);
+        Map<String, Float> newRetrieved_NN = readRetrievedTweets(ansFilePath_New_NN);
+        Map<String, Float> originalRetrieved_NN = readRetrievedTweets(ansFilePath_Original_NN);
+
+        // Lexicon
+        Map<String, Float> combinedRetrieved_Lex = readRetrievedTweets(ansFilePath_Combined_Lex);
+        Map<String, Float> newRetrieved_Lex = readRetrievedTweets(ansFilePath_New_Lex);
+        Map<String, Float> originalRetrieved_Lex = readRetrievedTweets(ansFilePath_Original_Lex);
+
+        createExcel(tweets, combinedRetrieved_NN, newRetrieved_NN, originalRetrieved_NN,
         "src/main/resources/output_without_lexicon.xlsx");
 
-        createExcelWithLexicon(tweets, combinedRetrieved, newRetrieved, originalRetrieved, combinedRetrieved,
-                newRetrieved, originalRetrieved,
+        createExcelWithLexicon(tweets, combinedRetrieved_NN, newRetrieved_NN, originalRetrieved_NN, combinedRetrieved_Lex,
+        newRetrieved_Lex, originalRetrieved_Lex,
                 "src/main/resources/output_with_lexicon.xlsx");
     }
 
@@ -642,13 +664,13 @@ public class QueryEngine {
         }
     }
 
-    public static void Evaluation() {
+    public static void Evaluation(String ResultFilePath_New, String ResultFilePath_Combined, String ResultFilePath_Original) {
         Set<String> groundTruthHate0 = readGroundTruthHate0(inputfilePathCSV, 0);
         Set<String> groundTruthHate1 = readGroundTruthHate0(inputfilePathCSV, 1);
 
-        Map<String, Float> retrievedTweets_New = readRetrievedTweets(ansFilePath_New);
-        Map<String, Float> retrievedTweets_Combined = readRetrievedTweets(ansFilePath_Combined);
-        Map<String, Float> retrievedTweets_Original = readRetrievedTweets(ansFilePath_Original);
+        Map<String, Float> retrievedTweets_New = readRetrievedTweets(ResultFilePath_New);
+        Map<String, Float> retrievedTweets_Combined = readRetrievedTweets(ResultFilePath_Combined);
+        Map<String, Float> retrievedTweets_Original = readRetrievedTweets(ResultFilePath_Original);
 
         System.out.println("groundTruthHate0: " + groundTruthHate0.size());
         System.out.println("groundTruthHate1: " + groundTruthHate1.size());
