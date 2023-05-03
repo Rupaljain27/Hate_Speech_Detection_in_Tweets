@@ -442,11 +442,6 @@ public class QueryEngine {
 
         // Calculate true positives
         int truePositives = hateValues1.size();
-        // for (String tweet : retrievedTweets) {
-        //     if (groundTruthHate0.contains(tweet)) {
-        //         truePositives++;
-        //     }
-        // }
 
         // Calculate false positives
         int falsePositives = hateValues0.size();
@@ -493,13 +488,7 @@ public class QueryEngine {
                                 groundTruthHate0.add(tweetId);
                             }
                         }
-                        // int hateValue = Integer.parseInt(hateValueStr);
-                        // if (hateValue == value) {
-                        // groundTruthHate0.add(tweetId);
-                        // }
                     } catch (NumberFormatException e) {
-                        // Handle the case where the hate value is not a valid integer
-                        // You can choose to ignore it, log a warning, or handle it in any other way
                         e.printStackTrace();
                     }
                 }
@@ -515,7 +504,6 @@ public class QueryEngine {
         try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
             String line;
             while ((line = br.readLine()) != null) {
-                // String tweetId = extractTweetId(line);
                 String[] parts = line.split(":");
                 String tweetId = parts[0].trim();
                 retrievedTweets.add(tweetId);
@@ -546,36 +534,18 @@ public class QueryEngine {
                         System.out.println("tweet: " + 1);
                         if (hateValue == value) {
                             hateValuesHate0.put(tweet, hateValue);
-                            // } else if (hateValue == 1) {
-                            // hateValuesHate1.put(tweet, hateValue);
                         }
                     } else {
                         int hateValue = Integer.parseInt(hateValueStr);
                         if (hateValue == value) {
                             hateValuesHate0.put(tweet, hateValue);
-                            // } else if (hateValue == 1) {
-                            // hateValuesHate1.put(tweet, hateValue);
                         }
                     }
                 }
-                // String[] values = line.split(",");
-                // String tweetId = values[0];
-                // int hateValue = Integer.parseInt(values[1]);
-                // if (ans.contains(tweetId)) {
-                // if (hateValue == 0) {
-                // hateValuesHate0.put(tweetId, hateValue);
-                // } else if (hateValue == 1) {
-                // hateValuesHate1.put(tweetId, hateValue);
-                // }
-                // }
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
-
-        // Map<String, Integer> hateValues = new HashMap<>();
-        // hateValues.putAll(hateValuesHate0);
-        // hateValues.putAll(hateValuesHate1);
 
         return hateValuesHate0;
     }
