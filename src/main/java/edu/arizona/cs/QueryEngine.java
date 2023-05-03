@@ -16,6 +16,7 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.queryparser.classic.QueryParser;
+import org.apache.lucene.queryparser.flexible.core.nodes.ValueQueryNode;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
@@ -26,6 +27,7 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
@@ -104,12 +106,14 @@ public class QueryEngine {
         // buildIndex();
 
         // Step 3: Detect hate speech
-        System.out.println("New NN query");
-        HateSpeechDetector(NewNNquery, "New");
-        System.out.println("Combined NN query");
-        HateSpeechDetector(CombinedNNquery, "Combined");
-        System.out.println("Original NN query");
-        HateSpeechDetector(OriginalNNquery, "Original");
+        // System.out.println("New NN query");
+        // HateSpeechDetector(NewNNquery, "New");
+        // System.out.println("Combined NN query");
+        // HateSpeechDetector(CombinedNNquery, "Combined");
+        // System.out.println("Original NN query");
+        // HateSpeechDetector(OriginalNNquery, "Original");
+
+        errorAnalysis();
     }
 
     public static Twitter getTwitterInstance() {
@@ -344,8 +348,9 @@ public class QueryEngine {
             System.out.println("Hate Speech tweets retrieved from NN: " + ans.size());
             // Printing the tweets having Hate Speech
             // for (ResultClass result : ans) {
-            //     System.out.println(
-            //             result.DocName.get("Tweetid") + " : " + result.DocName.get("text") + " : " + result.docScore);
+            // System.out.println(
+            // result.DocName.get("Tweetid") + " : " + result.DocName.get("text") + " : " +
+            // result.docScore);
             // }
 
             // improvement of traditional method - load lexicon from hate speech text file
@@ -379,7 +384,8 @@ public class QueryEngine {
                 // Check if the entry already exists in ans
                 boolean entryExists = false;
                 for (ResultClass existingResult : ans) {
-                    // System.out.println("existingResult.DocName: " + existingResult.DocName + " Score: " + existingResult.docScore);
+                    // System.out.println("existingResult.DocName: " + existingResult.DocName + "
+                    // Score: " + existingResult.docScore);
                     if (existingResult.DocName.equals(result.DocName)) {
                         entryExists = true;
                         break;
@@ -387,20 +393,22 @@ public class QueryEngine {
                 }
                 if (!entryExists) {
                     ans.add(result);
-                }else{
+                } else {
                     ans.add(result);
                 }
             }
             System.out.println("Hate Speech tweets retrieved: " + ans.size());
             // Printing the tweets having Hate Speech
             // for (ResultClass result : ans) {
-            //     System.out.println(
-            //             result.DocName.get("Tweetid") + " : " + result.DocName.get("text") + " : " + result.docScore);
+            // System.out.println(
+            // result.DocName.get("Tweetid") + " : " + result.DocName.get("text") + " : " +
+            // result.docScore);
             // }
 
             // Printing the tweets having Hate Speech and writing to output.txt
             for (ResultClass result : ans) {
-                String output = result.DocName.get("Tweetid") + " : " + result.docScore + " : "+ result.DocName.get("text");
+                String output = result.DocName.get("Tweetid") + " : " + result.docScore + " : "
+                        + result.DocName.get("text");
                 System.out.println(output);
                 writer.write(output);
                 writer.newLine();
@@ -409,6 +417,167 @@ public class QueryEngine {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public static void errorAnalysis() {
+        String groundTruthFilePath = "src/main/resources/input.csv";
+        String ansFilePath_Combined = "src/main/resources/output_Combined.txt";
+        String ansFilePath_New = "src/main/resources/output_New.txt";
+        String ansFilePath_Original = "src/main/resources/output_Original.txt";
+
+        Set<String> groundTruthHate0 = readGroundTruthHate0(groundTruthFilePath, 0);
+        Set<String> groundTruthHate1 = readGroundTruthHate0(groundTruthFilePath, 1);
+        Set<String> retrievedTweets = readRetrievedTweets(ansFilePath_New);
+        Map<String, Integer> hateValues0 = getHateValues(retrievedTweets, groundTruthFilePath, 0);
+        Map<String, Integer> hateValues1 = getHateValues(retrievedTweets, groundTruthFilePath, 1);
+
+        System.out.println("groundTruthHate0: " + groundTruthHate0.size());
+        System.out.println("groundTruthHate1: " + groundTruthHate1.size());
+        System.out.println("retrievedTweets: " + retrievedTweets.size());
+        System.out.println("hateValues: " + hateValues0.size());
+        System.out.println("hateValues: " + hateValues1.size());
+
+        // int totalRetrievedTweets = groundTruthHate0.size() + groundTruthHate1.size();
+        int totalRetrievedTweets = retrievedTweets.size();
+
+        // Calculate true positives
+        int truePositives = hateValues1.size();
+        // for (String tweet : retrievedTweets) {
+        //     if (groundTruthHate0.contains(tweet)) {
+        //         truePositives++;
+        //     }
+        // }
+
+        // Calculate false positives
+        int falsePositives = hateValues0.size();
+        // int falsePositives = totalRetrievedTweets - truePositives;
+
+        // Calculate false negatives
+        int falseNegatives = groundTruthHate1.size() - hateValues1.size();
+        // int falseNegatives = totalGroundTruthHate1 - truePositives;
+
+        int trueNegatives = groundTruthHate0.size() - hateValues0.size();
+
+        // Calculate precision, recall, F1 score, and accuracy
+        double precision = (double) truePositives / (truePositives + falsePositives);
+        double recall = (double) truePositives / (truePositives + falseNegatives);
+        double f1Score = 2 * (precision * recall) / (precision + recall);
+        double accuracy = (double) (truePositives + trueNegatives) / totalRetrievedTweets;
+
+        // Print the metrics
+        System.out.println("Precision: " + precision);
+        System.out.println("Recall: " + recall);
+        System.out.println("F1 Score: " + f1Score);
+        System.out.println("Accuracy: " + accuracy);
+    }
+
+    private static Set<String> readGroundTruthHate0(String filePath, int value) {
+        Set<String> groundTruthHate0 = new HashSet<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] values = line.split(",");
+                if (values.length >= 2) {
+                    String tweetId = values[0];
+                    String hateValueStr = values[1];
+                    try {
+                        if (hateValueStr.equalsIgnoreCase("hate")) {
+                            // Assuming that "hate" represents a hate value of 1
+                            int hateValue = 1;
+                            if (hateValue == value) {
+                                groundTruthHate0.add(tweetId);
+                            }
+                        } else {
+                            int hateValue = Integer.parseInt(hateValueStr);
+                            if (hateValue == value) {
+                                groundTruthHate0.add(tweetId);
+                            }
+                        }
+                        // int hateValue = Integer.parseInt(hateValueStr);
+                        // if (hateValue == value) {
+                        // groundTruthHate0.add(tweetId);
+                        // }
+                    } catch (NumberFormatException e) {
+                        // Handle the case where the hate value is not a valid integer
+                        // You can choose to ignore it, log a warning, or handle it in any other way
+                        e.printStackTrace();
+                    }
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return groundTruthHate0;
+    }
+
+    private static Set<String> readRetrievedTweets(String filePath) {
+        Set<String> retrievedTweets = new HashSet<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                // String tweetId = extractTweetId(line);
+                String[] parts = line.split(":");
+                String tweetId = parts[0].trim();
+                retrievedTweets.add(tweetId);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return retrievedTweets;
+    }
+
+    private static Map<String, Integer> getHateValues(Set<String> ans, String filePath, int value) {
+        Map<String, Integer> hateValuesHate0 = new HashMap<>();
+        // Map<String, Integer> hateValuesHate1 = new HashMap<>();
+
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+            String line = br.readLine();
+            int rowNumber = 2; // Start from the second row
+            while ((line = br.readLine()) != null) {
+                String[] values = line.split(",");
+                String tweetId = Integer.toString(rowNumber); // Use row number as tweet ID
+                rowNumber++;
+                String tweet = values[0];
+                String hateValueStr = values[1];
+                if (ans.contains(tweetId)) {
+                    if (hateValueStr.equalsIgnoreCase("hate")) {
+                        // Assuming that "hate" represents a hate value of 1
+                        int hateValue = 1;
+                        System.out.println("tweet: " + 1);
+                        if (hateValue == value) {
+                            hateValuesHate0.put(tweet, hateValue);
+                            // } else if (hateValue == 1) {
+                            // hateValuesHate1.put(tweet, hateValue);
+                        }
+                    } else {
+                        int hateValue = Integer.parseInt(hateValueStr);
+                        if (hateValue == value) {
+                            hateValuesHate0.put(tweet, hateValue);
+                            // } else if (hateValue == 1) {
+                            // hateValuesHate1.put(tweet, hateValue);
+                        }
+                    }
+                }
+                // String[] values = line.split(",");
+                // String tweetId = values[0];
+                // int hateValue = Integer.parseInt(values[1]);
+                // if (ans.contains(tweetId)) {
+                // if (hateValue == 0) {
+                // hateValuesHate0.put(tweetId, hateValue);
+                // } else if (hateValue == 1) {
+                // hateValuesHate1.put(tweetId, hateValue);
+                // }
+                // }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        // Map<String, Integer> hateValues = new HashMap<>();
+        // hateValues.putAll(hateValuesHate0);
+        // hateValues.putAll(hateValuesHate1);
+
+        return hateValuesHate0;
     }
 
 }
