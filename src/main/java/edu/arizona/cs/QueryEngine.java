@@ -52,13 +52,18 @@ public class QueryEngine {
     private static String ACCESS_TOKEN_SECRET = "";
 
     static boolean indexExists = false;
-    static String filePathcsv = "src/main/resources/input.csv";
+    static String inputfilePathCSV = "src/main/resources/input.csv";
     static String NewQueryFile = "new_dataset_hatespeech_query.txt";
     static String CombinedQueryFile = "combined_dataset_hatespeech_query.txt";
     static String OriginalQueryFile = "old_dataset_hatespeech_query.txt";
     static String indexPath = "src/main/index";
     static String lexiconFilePath = "hatespeech_lexicon.txt";
     static String lexiconQueryFile = "expanded_hatespeech_lexicon.txt";
+
+    static String groundTruthFilePath = "src/main/resources/input.csv";
+    static String ansFilePath_Combined = "src/main/resources/output_Combined.txt";
+    static String ansFilePath_New = "src/main/resources/output_New.txt";
+    static String ansFilePath_Original = "src/main/resources/output_Original.txt";
     static Directory index;
     boolean similarity = false;
 
@@ -113,7 +118,8 @@ public class QueryEngine {
         // System.out.println("Original NN query");
         // HateSpeechDetector(OriginalNNquery, "Original");
 
-        errorAnalysis();
+        // Evaluation();
+        OUTPUT();
     }
 
     public static Twitter getTwitterInstance() {
@@ -205,9 +211,9 @@ public class QueryEngine {
 
             System.out.println("Number of tweets retrieved: " + statuses.size());
 
-            File file = new File(filePathcsv);
+            File file = new File(inputfilePathCSV);
             boolean isNewFile = file.length() == 0;
-            try (FileWriter filewriter = new FileWriter(filePathcsv, true)) {
+            try (FileWriter filewriter = new FileWriter(inputfilePathCSV, true)) {
                 // Write CSV header if the file is empty
                 if (isNewFile) {
                     filewriter.write("tweet,hate_level\n");
@@ -248,7 +254,7 @@ public class QueryEngine {
 
         // Creating the index writer, reader for the CSV file and CSV parser
         try (IndexWriter writer = new IndexWriter(index, config);
-                Reader reader = new FileReader(filePathcsv);
+                Reader reader = new FileReader(inputfilePathCSV);
                 CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT)) {
 
             // Iterate over each CSV record
@@ -419,38 +425,129 @@ public class QueryEngine {
         }
     }
 
-    public static void errorAnalysis() {
-        String groundTruthFilePath = "src/main/resources/input.csv";
-        String ansFilePath_Combined = "src/main/resources/output_Combined.txt";
-        String ansFilePath_New = "src/main/resources/output_New.txt";
-        String ansFilePath_Original = "src/main/resources/output_Original.txt";
+    public static void OUTPUT() {
+        String ansFilePath_Combined = "output_Combined.txt";
+        String ansFilePath_New = "output_New.txt";
+        String ansFilePath_Original = "output_Original.txt";
 
-        Set<String> groundTruthHate0 = readGroundTruthHate0(groundTruthFilePath, 0);
-        Set<String> groundTruthHate1 = readGroundTruthHate0(groundTruthFilePath, 1);
-        Set<String> retrievedTweets = readRetrievedTweets(ansFilePath_New);
-        Map<String, Integer> hateValues0 = getHateValues(retrievedTweets, groundTruthFilePath, 0);
-        Map<String, Integer> hateValues1 = getHateValues(retrievedTweets, groundTruthFilePath, 1);
+        Map<String, Integer> tweets = readTweets(inputfilePathCSV);
+        Map<String, Float> combinedRetrieved = readRetrievedTweets(ansFilePath_Combined);
+        Map<String, Float> newRetrieved = readRetrievedTweets(ansFilePath_New);
+        Map<String, Float> originalRetrieved = readRetrievedTweets(ansFilePath_Original);
+
+        System.out.println("Total number of tweets: " + tweets);
+        // Perform the necessary processing and calculations
+
+        // CSVWriter.createCSV(tweets, combinedRetrieved, newRetrieved, originalRetrieved);
+
+    }
+
+    private static Map<String, Integer> readTweets(String filePath) {
+        Map<String, Integer> tweets = new HashMap<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] values = line.split(",");
+                if (values.length >= 2) {
+                    String tweetId = values[0];
+                    String hateValueStr = values[1];
+                    tweets.put(tweetId, Integer.parseInt(hateValueStr));
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return tweets;
+    }
+
+    public static void createCSV(Set<String> tweets, Set<String> groundTruthHate0,
+            Map<String, Integer> combinedRetrieved, Map<String, Integer> newRetrieved,
+            Map<String, Integer> originalRetrieved) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(OUTPUT_FILE_PATH))) {
+            // Write the header row
+            writer.write(
+                    "tweet,hate,Original_retrieved(0/1),score,New_retrieved(0/1),score,Combined_retrieved(0/1),score");
+            writer.newLine();
+
+            // Iterate over the tweets and write each row
+            for (String tweet : tweets) {
+                writer.write(tweet);
+
+                // Check if the tweet is in groundTruthHate0 and write the corresponding values
+                writer.write(",");
+                if (groundTruthHate0.contains(tweet)) {
+                    writer.write("1,1");
+                } else {
+                    writer.write("0,0");
+                }
+
+                // Check if the tweet is present in each retrieved map and write the
+                // corresponding values
+                writer.write(",");
+                writeRetrievedValueAndScore(originalRetrieved, tweet, writer);
+                writer.write(",");
+                writeRetrievedValueAndScore(newRetrieved, tweet, writer);
+                writer.write(",");
+                writeRetrievedValueAndScore(combinedRetrieved, tweet, writer);
+
+                writer.newLine();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void writeRetrievedValueAndScore(Map<String, Integer> retrieved, String tweet, BufferedWriter writer)
+            throws IOException {
+        if (retrieved.containsKey(tweet)) {
+            writer.write("1");
+            writer.write(",");
+            writer.write(retrieved.get(tweet).toString());
+        } else {
+            writer.write("0");
+            writer.write(",");
+            writer.write("0");
+        }
+    }
+
+    public static void Evaluation() {
+        Set<String> groundTruthHate0 = readGroundTruthHate0(inputfilePathCSV, 0);
+        Set<String> groundTruthHate1 = readGroundTruthHate0(inputfilePathCSV, 1);
+        
+        Map<String, Float> retrievedTweets_New = readRetrievedTweets(ansFilePath_New);
+        Map<String, Float> retrievedTweets_Combined = readRetrievedTweets(ansFilePath_Combined);
+        Map<String, Float> retrievedTweets_Original = readRetrievedTweets(ansFilePath_Original);
 
         System.out.println("groundTruthHate0: " + groundTruthHate0.size());
         System.out.println("groundTruthHate1: " + groundTruthHate1.size());
-        System.out.println("retrievedTweets: " + retrievedTweets.size());
-        System.out.println("hateValues: " + hateValues0.size());
-        System.out.println("hateValues: " + hateValues1.size());
+        System.out.println("retrievedTweets New: " + retrievedTweets_New.size());
+        System.out.println("retrievedTweets Combined: " + retrievedTweets_Combined.size());
+        System.out.println("retrievedTweets Original: " + retrievedTweets_Original.size());
 
-        // int totalRetrievedTweets = groundTruthHate0.size() + groundTruthHate1.size();
+        System.out.println("New NN: ");
+        mearusingPRA(groundTruthHate0,groundTruthHate1, retrievedTweets_New);
+
+        System.out.println("Combined NN: ");
+        mearusingPRA(groundTruthHate0,groundTruthHate1, retrievedTweets_Combined);
+
+        System.out.println("Original NN: ");
+        mearusingPRA(groundTruthHate0,groundTruthHate1, retrievedTweets_Original);
+    }
+
+    public static void mearusingPRA(Set<String> groundTruthHate0, Set<String> groundTruthHate1, Map<String, Float> retrievedTweets) {
+
+        Map<String, Integer> hateValues0 = getHateValues(retrievedTweets, inputfilePathCSV, 0);
+        Map<String, Integer> hateValues1 = getHateValues(retrievedTweets, inputfilePathCSV, 1);
+
+        System.out.println("hateValues0: " + hateValues0.size());
+        System.out.println("hateValues1: " + hateValues1.size());
+
         int totalRetrievedTweets = retrievedTweets.size();
 
-        // Calculate true positives
+        // Calculate TP, TF, FP, FN
         int truePositives = hateValues1.size();
-
-        // Calculate false positives
         int falsePositives = hateValues0.size();
-        // int falsePositives = totalRetrievedTweets - truePositives;
-
-        // Calculate false negatives
         int falseNegatives = groundTruthHate1.size() - hateValues1.size();
-        // int falseNegatives = totalGroundTruthHate1 - truePositives;
-
         int trueNegatives = groundTruthHate0.size() - hateValues0.size();
 
         // Calculate precision, recall, F1 score, and accuracy
@@ -499,14 +596,15 @@ public class QueryEngine {
         return groundTruthHate0;
     }
 
-    private static Set<String> readRetrievedTweets(String filePath) {
-        Set<String> retrievedTweets = new HashSet<>();
+    private static Map<String, Float> readRetrievedTweets(String filePath) {
+        Map<String, Float> retrievedTweets = new HashMap<>();
         try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
             String line;
             while ((line = br.readLine()) != null) {
                 String[] parts = line.split(":");
-                String tweetId = parts[0].trim();
-                retrievedTweets.add(tweetId);
+                Float tweetScore = Float.parseFloat(parts[1]);
+                String tweet = parts[2].trim();
+                retrievedTweets.put(tweet, tweetScore);
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -514,7 +612,7 @@ public class QueryEngine {
         return retrievedTweets;
     }
 
-    private static Map<String, Integer> getHateValues(Set<String> ans, String filePath, int value) {
+    private static Map<String, Integer> getHateValues(Map<String, Float> retrievedTweet, String filePath, int value) {
         Map<String, Integer> hateValuesHate0 = new HashMap<>();
         // Map<String, Integer> hateValuesHate1 = new HashMap<>();
 
@@ -527,11 +625,10 @@ public class QueryEngine {
                 rowNumber++;
                 String tweet = values[0];
                 String hateValueStr = values[1];
-                if (ans.contains(tweetId)) {
+                if (retrievedTweet.containsKey(tweet)) {
                     if (hateValueStr.equalsIgnoreCase("hate")) {
                         // Assuming that "hate" represents a hate value of 1
                         int hateValue = 1;
-                        System.out.println("tweet: " + 1);
                         if (hateValue == value) {
                             hateValuesHate0.put(tweet, hateValue);
                         }
