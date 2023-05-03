@@ -123,12 +123,12 @@ public class QueryEngine {
         // buildIndex();
 
         // Step 3: Detect hate speech
-        System.out.println("New NN query");
-        HateSpeechDetector(NewNNquery, "New");
-        System.out.println("Combined NN query");
-        HateSpeechDetector(CombinedNNquery, "Combined");
-        System.out.println("Original NN query");
-        HateSpeechDetector(OriginalNNquery, "Original");
+        // System.out.println("New NN query");
+        // HateSpeechDetector(NewNNquery, "New");
+        // System.out.println("Combined NN query");
+        // HateSpeechDetector(CombinedNNquery, "Combined");
+        // System.out.println("Original NN query");
+        // HateSpeechDetector(OriginalNNquery, "Original");
 
         // Evaluation();
         // OUTPUT();
