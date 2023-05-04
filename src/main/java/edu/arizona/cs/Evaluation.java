@@ -66,7 +66,8 @@ public class Evaluation {
         double precision = (double) truePositives / (truePositives + falsePositives);
         double recall = (double) truePositives / (truePositives + falseNegatives);
         double f1Score = 2 * (precision * recall) / (precision + recall);
-        double accuracy = (double) (truePositives + trueNegatives) / totalRetrievedTweets;
+        double accuracy = (double) (truePositives + trueNegatives) / (truePositives + trueNegatives + falsePositives
+                + falseNegatives);
 
         // Print the metrics
         System.out.println("Precision: " + precision);
